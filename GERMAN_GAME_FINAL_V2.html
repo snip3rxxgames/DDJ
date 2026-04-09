@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deutschland In Diesem Jahr v1.9</title>
+    <style>
+        :root {
+            --bg: #020617;
+            --gold: #fbce07;
+            --p1-color: #ff4757;
+            --p2-color: #2e86de;
+            --terminal: #4ade80;
+            --glass: rgba(30, 41, 59, 0.7);
+            --neon-blue: #00f2ff;
+            --neon-white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: white;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            perspective: 3500px;
+        }
+
+        #board-viewport {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: scale(0.82);
+            transition: filter 0.5s ease;
+        }
+
+        /* --- DEV SUITE --- */
+        #dev-suite {
+            position: fixed; bottom: 0; right: 50px;
+            width: 350px; background: #0f172a;
+            border: 2px solid #334155; border-bottom: none;
+            border-radius: 10px 10px 0 0; z-index: 20000;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateY(calc(100% - 45px)); 
+        }
+        #dev-suite.open { transform: translateY(0); }
+        #dev-header {
+            background: #1e293b; padding: 12px; cursor: pointer;
+            display: flex; justify-content: space-between;
+            font-weight: bold; font-size: 12px; color: var(--gold);
+        }
+        .dev-body { padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; }
+
+        #tech-log-container { display: none; margin-top: 10px; border-top: 1px solid #334155; padding-top: 10px; }
+        #activity-log {
+            width: 100%; height: 150px;
+            background: #000; font-family: 'Courier New', monospace; 
+            font-size: 10px; color: var(--terminal); padding: 5px;
+            overflow-y: auto; border: 1px solid var(--terminal);
+        }
+
+        /* --- INTERFACE --- */
+        #setup-screen { position: fixed; inset: 0; background: var(--bg); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; }
+        #game-interface { display: none; width: 100%; height: 100%; flex-direction: row; }
+        
+        /* v1.9 SIDEBAR TWEAK */
+        .sidebar { 
+            width: 320px; 
+            height: 100%; 
+            background: #070b14; 
+            border-right: 3px solid #1e293b; 
+            padding: 25px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            z-index: 1000; 
+            box-sizing: border-box;
+        }
+        
+        #board-world-container { flex-grow: 1; position: relative; }
+        #world { position: relative; width: 880px; height: 880px; transform-style: preserve-3d; transform: rotateX(50deg) rotateZ(-12deg); transition: transform 3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* --- NEON TILES --- */
+        .tile-wrapper { position: absolute; width: 95px; height: 95px; transform-style: preserve-3d; }
+        .tile-face { position: absolute; width: 95px; height: 95px; background: white; border: 1.5px solid #cbd5e1; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.2s ease; }
+        .tile-top { transform: translateZ(12px); background: #ffffff; color: black; font-weight: 900; }
+        .tile-front { width: 95px; height: 12px; transform: rotateX(-90deg) translateZ(83px); background: #94a3b8; }
+        .tile-side { width: 12px; height: 95px; transform: rotateY(90deg) translateZ(89px); background: #64748b; }
+
+        body.dev-active .tile-top {
+            box-shadow: 0 0 10px var(--neon-white), inset 0 0 5px var(--neon-white);
+            cursor: pointer;
+        }
+
+        body.dev-active .tile-wrapper:hover .tile-top {
+            background: #e0f7ff !important;
+            box-shadow: 0 0 20px var(--neon-blue), 0 0 40px var(--neon-blue);
+        }
+
+        .pawn { position: absolute; width: 45px; height: 45px; transform-style: preserve-3d; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 500; pointer-events: none;}
+        .pawn-body { position: absolute; width: 45px; height: 45px; background: var(--color); border-radius: 50%; transform: translateZ(50px); display: flex; align-items: center; justify-content: center; font-size: 28px; border: 2px solid white; box-shadow: 0 0 20px var(--color); }
+        .pawn-stem { position: absolute; width: 10px; height: 50px; background: #334155; left: 17px; transform: rotateX(90deg) translateZ(-25px); }
+
+        /* UI */
+        .cool-input { background: var(--glass); border: 2px solid #334155; border-radius: 12px; padding: 15px 20px; color: white; outline: none; transition: 0.3s; width: 250px; }
+        
+        /* v1.9 ROLL BUTTON POSITION */
+        .btn-roll { 
+            background: var(--gold); 
+            color: black; 
+            font-weight: bold; 
+            padding: 18px; 
+            border: none; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-size: 1.2rem;
+            margin-bottom: 25px; /* Pushed up by 25px */
+        }
+        
+        .setup-card { background: #1e293b; padding: 25px; border-radius: 20px; border: 2px solid #334155; text-align: center; }
+        .active-p { border-color: var(--gold); box-shadow: 0 0 15px rgba(251, 206, 7, 0.4); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center; }
+        .modal-box { background: white; color: #1e293b; padding: 35px; border-radius: 20px; width: 420px; text-align: center; }
+        .opt { display: block; width: 100%; padding: 12px; margin: 8px 0; background: #f1f5f9; border: 1px solid #ccc; cursor: pointer; border-radius: 8px; font-weight: bold; }
+
+        #win-overlay { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.95); z-index: 20000; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;}
+        .firework { position: absolute; font-size: 3rem; animation: fireworkMove 2.5s infinite linear; pointer-events: none; }
+        @keyframes fireworkMove { 
+            0% { transform: translateY(100vh) scale(0.5); opacity: 1; } 
+            100% { transform: translateY(-50vh) scale(3) rotate(360deg); opacity: 0; } 
+        }
+    </style>
+</head>
+<body onclick="recordGlobalClick(event)">
+
+    <div id="dev-suite">
+        <div id="dev-header" onclick="toggleDev()">
+            <span>ENGINE_OVERRIDE v1.9</span>
+            <span id="dev-icon">▲</span>
+        </div>
+        <div class="dev-body">
+            <button class="opt" id="jump-mode-btn" style="background: var(--neon-blue); color: black;" onclick="enableJumpMode()">ENABLE CLICK-TO-JUMP</button>
+            <button class="opt" onclick="toggleLog()" id="log-toggle-btn">SHOW SYSTEM LOGS</button>
+            <button class="opt" onclick="location.reload()" style="background:#ff4757; color:white;">HARD REBOOT</button>
+            <div id="tech-log-container">
+                <div id="activity-log">[SYS] DB Expanded to 64 Entries...<br></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="setup-screen">
+        <h1 style="color: var(--gold); letter-spacing: 5px;">DEUTSCHLAND IN DIESEM JAHR</h1>
+        <div style="display: flex; gap: 30px;">
+            <div class="setup-card">
+                <input type="text" id="name1" class="cool-input" placeholder="Spieler 1 ID">
+                <div style="font-size:45px; margin-top:15px;">🥨</div>
+            </div>
+            <div class="setup-card">
+                <input type="text" id="name2" class="cool-input" placeholder="Spieler 2 ID">
+                <div style="font-size:45px; margin-top:15px;">🏎️</div>
+            </div>
+        </div>
+        <button class="btn-roll" style="width: 250px; margin-top: 20px;" onclick="startGame()">START ENGINE</button>
+    </div>
+
+    <div id="game-interface">
+        <div class="sidebar">
+            <h2 style="color: var(--gold); text-align: center;">v1.9 CORE</h2>
+            <div id="card1" class="setup-card active-p" style="padding: 15px;">
+                <h3 id="disp-name1" style="margin:0; color:var(--p1-color)"></h3>
+                <p>Score: <span id="score1">0</span></p>
+            </div>
+            <div id="card2" class="setup-card" style="padding: 15px;">
+                <h3 id="disp-name2" style="margin:0; color:var(--p2-color)"></h3>
+                <p>Score: <span id="score2">0</span></p>
+            </div>
+            <div style="flex-grow:1"></div>
+            <div id="roll-res" style="text-align:center; font-size: 2.5rem; color:var(--gold); font-weight:bold; height: 60px;"></div>
+            <button id="roll-btn" class="btn-roll" onclick="handleRoll()">🎲 WÜRFELN</button>
+        </div>
+
+        <div id="board-viewport">
+            <div id="world">
+                <div id="p1-piece" class="pawn" style="--color: var(--p1-color)"><div class="pawn-stem"></div><div class="pawn-body">🥨</div></div>
+                <div id="p2-piece" class="pawn" style="--color: var(--p2-color)"><div class="pawn-stem"></div><div class="pawn-body">🏎️</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-box"><div id="q-symbol" style="font-size: 50px;"></div><p id="q-text" style="font-weight:bold;"></p><div id="q-options"></div></div>
+    </div>
+
+    <div id="win-overlay">
+        <h1 style="color: var(--gold); font-size: 6rem; z-index: 100; text-shadow: 0 0 20px var(--gold);">🏆 SIEG! 🏆</h1>
+        <h2 id="winner-name" style="color: white; font-size: 3rem; z-index: 100;"></h2>
+        <button class="btn-roll" style="width: 250px; margin-top:30px; z-index: 100;" onclick="location.reload()">REBOOT</button>
+    </div>
+
+    <script>
+        const activityLog = document.getElementById('activity-log');
+        let isJumpMode = false;
+
+        function sysLog(msg) {
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            activityLog.innerHTML += `[${time}] ${msg}<br>`;
+            activityLog.scrollTop = activityLog.scrollHeight;
+        }
+
+        function recordGlobalClick(e) { sysLog(`CLICK: ${e.target.tagName}`); }
+
+        function toggleDev() {
+            const suite = document.getElementById('dev-suite');
+            suite.classList.toggle('open');
+            document.getElementById('dev-icon').innerText = suite.classList.contains('open') ? '▼' : '▲';
+        }
+
+        function enableJumpMode() {
+            isJumpMode = true;
+            document.body.classList.add('dev-active');
+            toggleDev();
+        }
+
+        function disableJumpMode() {
+            isJumpMode = false;
+            document.body.classList.remove('dev-active');
+        }
+
+        function toggleLog() {
+            const container = document.getElementById('tech-log-container');
+            container.style.display = (container.style.display === 'block') ? 'none' : 'block';
+        }
+
+        const emojis = ["🍺", "🥨", "🏰", "🏎️", "⚽", "🐻", "🌲", "🎻", "⛪", "🦅", "🐕", "🏔️", "🎷", "🍎", "🍰", "🛏️"];
+        
+        /* v1.9 FULL 64 QUESTION DATABASE */
+        const questionsDB = [
+            {q: "Tile 1: Meaning of 'Hallo'?", a: "Hello", alt: ["Goodbye", "Help"]},
+            {q: "Tile 2: 'Pretzel' in German?", a: "Brezel", alt: ["Brot", "Kuchen"]},
+            {q: "Tile 3: Famous German castle?", a: "Neuschwanstein", alt: ["Versailles", "Windsor"]},
+            {q: "Tile 4: Famous German car brand?", a: "Porsche", alt: ["Fiat", "Renault"]},
+            {q: "Tile 5: Meaning of 'Fußball'?", a: "Football", alt: ["Handball", "Basketball"]},
+            {q: "Tile 6: Symbol of Berlin?", a: "Bär", alt: ["Adler", "Löwe"]},
+            {q: "Tile 7: Meaning of 'Wald'?", a: "Forest", alt: ["Ocean", "Desert"]},
+            {q: "Tile 8: Meaning of 'Musik'?", a: "Music", alt: ["Noise", "Silence"]},
+            {q: "Tile 9: Meaning of 'Kirche'?", a: "Church", alt: ["School", "Store"]},
+            {q: "Tile 10: Symbol on German flag?", a: "Adler", alt: ["Stern", "Kreuz"]},
+            {q: "Tile 11: Meaning of 'Hund'?", a: "Dog", alt: ["Cat", "Bird"]},
+            {q: "Tile 12: Meaning of 'Berg'?", a: "Mountain", alt: ["Valley", "River"]},
+            {q: "Tile 13: German word for Saxophone?", a: "Saxophon", alt: ["Gitarre", "Flöte"]},
+            {q: "Tile 14: German word for Apple?", a: "Apfel", alt: ["Birne", "Banane"]},
+            {q: "Tile 15: German word for Cake?", a: "Kuchen", alt: ["Suppe", "Fleisch"]},
+            {q: "Tile 16: Meaning of 'Schlafen'?", a: "To sleep", alt: ["To run", "To eat"]},
+            {q: "Tile 17: Which river flows through Hamburg?", a: "Elbe", alt: ["Rhein", "Donau"]},
+            {q: "Tile 18: Meaning of 'Danke'?", a: "Thank you", alt: ["Please", "Sorry"]},
+            {q: "Tile 19: Meaning of 'Schloss'?", a: "Castle", alt: ["House", "Tower"]},
+            {q: "Tile 20: Famous race track?", a: "Nürburgring", alt: ["Monaco", "Silverstone"]},
+            {q: "Tile 21: Most popular sport?", a: "Fußball", alt: ["Tennis", "Golf"]},
+            {q: "Tile 22: Capital of Germany?", a: "Berlin", alt: ["Munich", "Frankfurt"]},
+            {q: "Tile 23: Black Forest in German?", a: "Schwarzwald", alt: ["Grünwald", "Eichenwald"]},
+            {q: "Tile 24: Beethoven's birth city?", a: "Bonn", alt: ["Berlin", "Leipzig"]},
+            {q: "Tile 25: Meaning of 'Dom'?", a: "Cathedral", alt: ["City", "Roof"]},
+            {q: "Tile 26: Meaning of 'Deutschland'?", a: "Germany", alt: ["Denmark", "Dutch"]},
+            {q: "Tile 27: Common pet?", a: "Katze", alt: ["Tiger", "Elefant"]},
+            {q: "Tile 28: Highest mountain?", a: "Zugspitze", alt: ["Alps", "Everest"]},
+            {q: "Tile 29: Meaning of 'Lied'?", a: "Song", alt: ["Book", "Game"]},
+            {q: "Tile 30: Meaning of 'Rot'?", a: "Red", alt: ["Blue", "Green"]},
+            {q: "Tile 31: Meaning of 'Süß'?", a: "Sweet", alt: ["Salty", "Bitter"]},
+            {q: "Tile 32: Meaning of 'Bett'?", a: "Bed", alt: ["Chair", "Table"]},
+            {q: "Tile 33: Meaning of 'Wasser'?", a: "Water", alt: ["Juice", "Milk"]},
+            {q: "Tile 34: Meaning of 'Wurst'?", a: "Sausage", alt: ["Cheese", "Ham"]},
+            {q: "Tile 35: Year of Reunification?", a: "1990", alt: ["1989", "1945"]},
+            {q: "Tile 36: Meaning of 'Schnell'?", a: "Fast", alt: ["Slow", "Quiet"]},
+            {q: "Tile 37: Meaning of 'Elf'?", a: "Eleven", alt: ["Ten", "Twelve"]},
+            {q: "Tile 38: Meaning of 'Berlin'?", a: "Capital City", alt: ["A river", "A mountain"]},
+            {q: "Tile 39: Meaning of 'Baum'?", a: "Tree", alt: ["Flower", "Grass"]},
+            {q: "Tile 40: Meaning of 'Violine'?", a: "Violin", alt: ["Piano", "Drum"]},
+            {q: "Tile 41: Meaning of 'Glaube'?", a: "Faith", alt: ["Fear", "Hope"]},
+            {q: "Tile 42: Federal state of Munich?", a: "Bayern", alt: ["Hessen", "Sachsen"]},
+            {q: "Tile 43: Meaning of 'Welpen'?", a: "Puppy", alt: ["Kitten", "Calf"]},
+            {q: "Tile 44: Meaning of 'See'?", a: "Lake", alt: ["Sea", "Pond"]},
+            {q: "Tile 45: Meaning of 'Klarinette'?", a: "Clarinet", alt: ["Oboe", "Tuba"]},
+            {q: "Tile 46: Meaning of 'Obst'?", a: "Fruit", alt: ["Meat", "Veggie"]},
+            {q: "Tile 47: Meaning of 'Bäckerei'?", a: "Bakery", alt: ["Butcher", "Farm"]},
+            {q: "Tile 48: Meaning of 'Nacht'?", a: "Night", alt: ["Day", "Noon"]},
+            {q: "Tile 49: Large port city?", a: "Hamburg", alt: ["Munich", "Berlin"]},
+            {q: "Tile 50: Meaning of 'Brot'?", a: "Bread", alt: ["Rice", "Pasta"]},
+            {q: "Tile 51: Fairy tale writers?", a: "Brothers Grimm", alt: ["Goethe", "Schiller"]},
+            {q: "Tile 52: Meaning of 'Auto'?", a: "Car", alt: ["Bus", "Train"]},
+            {q: "Tile 53: Meaning of 'Tor'?", a: "Goal/Gate", alt: ["Window", "Door"]},
+            {q: "Tile 54: Meaning of 'Gold'?", a: "Gold", alt: ["Silver", "Iron"]},
+            {q: "Tile 55: Meaning of 'Grün'?", a: "Green", alt: ["Red", "Yellow"]},
+            {q: "Tile 56: Meaning of 'Klavier'?", a: "Piano", alt: ["Harp", "Lute"]},
+            {q: "Tile 57: Meaning of 'Heiligen'?", a: "Saints", alt: ["Kings", "Knights"]},
+            {q: "Tile 58: Meaning of 'Schwarz'?", a: "Black", alt: ["White", "Grey"]},
+            {q: "Tile 59: Smallest dog breed?", a: "Chihuahua", alt: ["Beagle", "Boxer"]},
+            {q: "Tile 60: River through Cologne?", a: "Rhein", alt: ["Main", "Spree"]},
+            {q: "Tile 61: Meaning of 'Trompete'?", a: "Trumpet", alt: ["Horn", "Flute"]},
+            {q: "Tile 62: Meaning of 'Erdbeere'?", a: "Strawberry", alt: ["Cherry", "Plum"]},
+            {q: "Tile 63: Meaning of 'Zucker'?", a: "Sugar", alt: ["Salt", "Pepper"]},
+            {q: "Tile 64: WINNER! Final word?", a: "Sieg", alt: ["Ende", "Start"]}
+        ];
+
+        let p1 = { pos: 0, score: 0, prev: 0, name: "" };
+        let p2 = { pos: 0, score: 0, prev: 0, name: "" };
+        let turn = 1;
+        const path = [];
+
+        function startGame() {
+            p1.name = document.getElementById('name1').value || "Spieler 1";
+            p2.name = document.getElementById('name2').value || "Spieler 2";
+            document.getElementById('disp-name1').innerText = p1.name;
+            document.getElementById('disp-name2').innerText = p2.name;
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-interface').style.display = 'flex';
+            buildBoard();
+        }
+
+        function buildBoard() {
+            const world = document.getElementById('world');
+            for (let i = 0; i < 64; i++) {
+                const x = (i % 8) * 110, y = Math.floor(i / 8) * 110;
+                path.push({ x, y });
+                const wrap = document.createElement('div');
+                wrap.className = 'tile-wrapper';
+                wrap.style.left = x + 'px'; wrap.style.top = y + 'px';
+                wrap.onclick = () => { if(isJumpMode) { const active = (turn === 1) ? p1 : p2; active.pos = i; updateVisuals(); disableJumpMode(); } };
+                wrap.innerHTML = `<div class="tile-face tile-top"><span>${i+1}</span></div><div class="tile-face tile-front"></div><div class="tile-face tile-side"></div>`;
+                world.appendChild(wrap);
+            }
+            updateVisuals();
+        }
+
+        function updateVisuals() {
+            document.getElementById('p1-piece').style.left = (path[p1.pos].x + 10) + 'px';
+            document.getElementById('p1-piece').style.top = (path[p1.pos].y + 10) + 'px';
+            document.getElementById('p2-piece').style.left = (path[p2.pos].x + 45) + 'px';
+            document.getElementById('p2-piece').style.top = (path[p2.pos].y + 45) + 'px';
+        }
+
+        async function handleRoll() {
+            if(isJumpMode) return;
+            document.getElementById('roll-btn').disabled = true;
+            const roll = Math.floor(Math.random() * 6) + 1;
+            document.getElementById('roll-res').innerText = "🎲 " + roll;
+            const active = (turn === 1) ? p1 : p2;
+            active.prev = active.pos;
+            for (let i = 0; i < roll; i++) { if (active.pos < 63) { active.pos++; updateVisuals(); await new Promise(r => setTimeout(r, 200)); } }
+            setTimeout(() => askQ(active), 300);
+        }
+
+        function askQ(player) {
+            const q = questionsDB[player.pos];
+            document.getElementById('q-symbol').innerText = emojis[player.pos % emojis.length];
+            document.getElementById('q-text').innerText = q.q;
+            const box = document.getElementById('q-options'); box.innerHTML = "";
+            [q.a, ...q.alt].sort(() => Math.random() - 0.5).forEach(o => {
+                const b = document.createElement('button'); b.className = 'opt'; b.innerText = o;
+                b.onclick = () => {
+                    document.getElementById('modal').style.display = 'none';
+                    if (o === q.a) { player.score += 10; if (player.pos === 63) return doWin(); }
+                    else { player.pos = player.prev; updateVisuals(); }
+                    turn = (turn === 1) ? 2 : 1;
+                    document.getElementById('score1').innerText = p1.score;
+                    document.getElementById('score2').innerText = p2.score;
+                    document.getElementById('card1').classList.toggle('active-p', turn === 1);
+                    document.getElementById('card2').classList.toggle('active-p', turn === 2);
+                    document.getElementById('roll-btn').disabled = false;
+                };
+                box.appendChild(b);
+            });
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function doWin() {
+            const world = document.getElementById('world');
+            const overlay = document.getElementById('win-overlay');
+            world.style.transform = "rotateX(0deg) rotateZ(1080deg) scale(0)";
+            setTimeout(() => {
+                overlay.style.display = 'flex';
+                document.getElementById('winner-name').innerText = turn === 1 ? p1.name : p2.name;
+                for(let i=0; i<40; i++) {
+                    const f = document.createElement('div');
+                    f.className = 'firework'; f.innerText = "🍺";
+                    f.style.left = Math.random() * 100 + "vw";
+                    f.style.animationDelay = Math.random() * 3 + "s";
+                    overlay.appendChild(f);
+                }
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
